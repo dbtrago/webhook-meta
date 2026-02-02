@@ -1,37 +1,48 @@
-// Import Express.js
 const express = require('express');
+const fetch = require('node-fetch');
 
-// Create an Express app
 const app = express();
-
-// Middleware to parse JSON bodies
 app.use(express.json());
 
-// Set port and verify_token
 const port = process.env.PORT || 3000;
 const verifyToken = process.env.VERIFY_TOKEN;
 
-// Route for GET requests
+// GET → verificación de Meta
 app.get('/', (req, res) => {
-  const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === verifyToken) {
-    console.log('WEBHOOK VERIFIED');
-    res.status(200).send(challenge);
-  } else {
-    res.status(403).end();
-  }
+    if (mode === 'subscribe' && token === verifyToken) {
+        console.log('WEBHOOK VERIFIED');
+        return res.status(200).send(challenge);
+    }
+
+    return res.sendStatus(403);
 });
 
-// Route for POST requests
-app.post('/', (req, res) => {
-  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  console.log(`\n\nWebhook received ${timestamp}\n`);
-  console.log(JSON.stringify(req.body, null, 2));
-  res.status(200).end();
+// POST → mensajes entrantes
+app.post('/', async (req, res) => {
+    const payload = req.body;
+
+    console.log('Webhook received from Meta');
+    console.log(JSON.stringify(payload, null, 2));
+
+    try {
+        await fetch('https://33feb8bd09df.ngrok-free.app/webhook/whatsapp-in', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+        });
+    } catch (err) {
+        console.error('Error sending to n8n:', err.message);
+    }
+
+    res.sendStatus(200);
 });
 
-// Start the server
 app.listen(port, () => {
-  console.log(`\nListening on port ${port}\n`);
+    console.log(`Listening on port ${port}`);
 });
